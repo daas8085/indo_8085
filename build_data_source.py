@@ -68,46 +68,44 @@ def main():
     item_master_df = pd.read_excel(ITEM_MASTER_PATH, sheet_name=ITEM_MASTER_SHEET)
 
     order_df = order_df.rename(columns={
-        "PO Number": "poNumber",
-        "Job Name": "jobName",
-        "Brand": "brand",
-        "Order Qty": "orderQty",
-        "Dispatch Qty": "dispQty",
-        "Status": "status",
-        "Login Date": "date",
-        "Invoice No": "invoiceNo",
-        "Value": "value",
-        "Link": "link",
+        "poNumber":"PO_Number",
+        "jobName":"Job_Name",
+        "brand":"Brand",
+        "orderQty":"Order_Qty",
+        "dispQty":"Dispatch_Qty",
+        "status":"Status",
+        "date":"Login_Date",
+        "invoiceNo":"Invoice_No",
+        "value": "Value",
+        "link": "Link",
         #"PO Pdf": "poPdf",
-        "Stage": "stage"
+        "stage": "Stage"
     })
 
     sales_df = sales_df.rename(columns={
-        "Date": "date",
-        "Invoice No": "invoiceNo",
-        "Job Name": "jobName",
-        "Value": "value",
-        "Due Date": "dueDate",
-        "Link": "link",
+        "date": "Date",
+        "invoiceNo": "Invoice_No",
+        "jobName": "Job_Name",
+        "value": "Value",
+        "dueDate": "Due_Date",
+        "link": "Link",
         #"PO Number Pdf": "ponumberPdf",
-        "Stage": "stage"
+        "stage": "Stage"
     })
 
     item_master_df = item_master_df.rename(columns={
-        "ITEM CODE": "itemCode",
-        "Job Name": "jobsName",
-        "date": "date",
-        "artworkId": "artworkId",
-        "Customer Name": "customerName",
-        "Pak_Form": "pakForm",
-        "N_Qty": "nQty",
-        "Direction": "direction",
-        "Label_Size": "labelSize",
-        "Material": "material",
-        "inventory": "inventory",
-        "GST_Credit": "gstCredit",
-        "HSN_SAC_Code": "hsnSacCode",
-        "Artwork File": "artworkFile"
+        "itemCode": "Item_Code",
+        "jobsName": "Jobs_Name",
+        "date": "Date",
+        "packForm": "Pack_Form",
+        "nQty": "N_Qty",
+        "materialType": "Material_Type",
+        "direction": "Direction",
+        "labelSize": "Label_Size",
+        "inventory": "Inventory",
+
+        "artworkid": "Artwork_ID",
+        "artworkFile": "Artwork_file"
     })
 
     order_json = df_to_js_array(order_df)

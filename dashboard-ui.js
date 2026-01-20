@@ -1,65 +1,53 @@
 /***************************************
- * DASHBOARD UI + DRILLDOWN HANDLERS
- ****************************************/
+* DASHBOARD UI + DRILLDOWN HANDLERS
+****************************************/
 let lastSkuSummaryData = [];
 let dashboardState = JSON.parse(localStorage.getItem('jainyticDashboard')) || {};
 let monthlyChart, monthlyPOChart, orderCompletionPie, skuMonthlyChart;
 
 /*****************************************
- * UTILITY FUNCTIONS
- *****************************************/
+* UTILITY FUNCTIONS
+*****************************************/
 function monthLabelFromKey(monthKey) {
     return new Date(monthKey + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
-/*****************************************
- * Single DOMContentLoaded handler - ✅ FIXED FOR F5 REFRESH
- *****************************************/
+// In dashboard-ui.js DOMContentLoaded section, replace this part:
 document.addEventListener("DOMContentLoaded", function () {
     startDigitalClock();
-    
-    // ✅ FIX: Reset state on hard refresh (F5/Ctrl+R)
-    if (performance.navigation.type === 1 || performance.getEntriesByType('navigation')[0]?.type === 'reload') {
-        localStorage.removeItem('jainyticDashboard');
-        sessionStorage.clear();
-        dashboardState = {};
-    }
-    
     renderTopSkusByDispatch(orderBookData, 15);
     
     /* ----------------------------------
-     * KPI CALCULATIONS
-     * ---------------------------------- */
-    const financial = calculateFinancialOverview(salesBookData);
-    const pendingDispatchInLakh = calculatePendingDispatch(orderBookData);
-    const kpi = calculateKPIs(orderBookData, salesBookData);
+    * KPI CALCULATIONS - FIXED
+    * ---------------------------------- */
+    const financial = calculateFinancialOverview(salesBookData);  // ✅ Fixed data name
+    const pendingDispatchInLakh = calculatePendingDispatch(orderBookData);  // ✅ Fixed data name
+    const kpi = calculateKPIs(orderBookData, salesBookData);  // ✅ Fixed data names
 
     /* ----------------------------------
-     * SET VALUES ON KPI CARDS
-     * ---------------------------------- */
+    * SET VALUES ON KPI CARDS - VERIFIED
+    * ---------------------------------- */
     document.getElementById("outstanding-amount").textContent = `${financial.outstandingAmountInLakh.toFixed(2)} L`;
     document.getElementById("pending-dispatch").textContent = `${pendingDispatchInLakh.toFixed(2)} L`;
-    document.getElementById("ytd-sale").textContent = kpi.ytdSales.toFixed(2);
-    document.getElementById("current-month-sale").textContent = `${kpi.currentMonthSales.toFixed(2)} L`;
+    document.getElementById("ytd-sale").textContent = kpi.ytdSales.toFixed(2);  // ✅ FIXED
+    document.getElementById("current-month-sale").textContent = `${kpi.currentMonthSales.toFixed(2)} L`;  // ✅ FIXED
     document.getElementById("completion-rate").textContent = kpi.completionRate.toFixed(1);
     document.getElementById("total-sku-count").textContent = kpi.totalSKU;
-    document.getElementById("item-master-count").textContent = uniqueItemCodes.size;
+    document.getElementById("item-master-count").textContent = itemMasterData ? itemMasterData.length : 0;
+    
 
     /* ----------------------------------
-     * ✅ FIXED: Always start with All SKUs on page load
-     * ---------------------------------- */
-    renderAllSkusMonthlyTrend(); // ALWAYS show this first
-
-    // Only restore SKU view if NOT a fresh reload AND state exists
-    if (performance.navigation.type !== 1 && 
-        dashboardState.currentView === 'sku' && 
-        dashboardState.selectedSku) {
+    * ✅ SHOW ALL SKUs TREND ON INITIAL LOAD + RESTORE STATE
+    * ---------------------------------- */
+    if (dashboardState.currentView === 'sku' && dashboardState.selectedSku) {
         setTimeout(() => renderSkuMonthlyChart(dashboardState.selectedSku), 300);
+    } else {
+        renderAllSkusMonthlyTrend();  // Show total SKUs trend first
     }
 
     /*****************************************
-     * SLIDE-UP DRILLDOWN POPUP HANDLER
-     *****************************************/
+    * SLIDE-UP DRILLDOWN POPUP HANDLER
+    *****************************************/
     window.openDrilldown = function(title, columns, rows) {
         document.getElementById("drilldown-title").textContent = title;
         document.getElementById("drilldown-head").innerHTML = "<tr>" + columns.map(c => `<th>${c}</th>`).join("") + "</tr>";
@@ -83,78 +71,73 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     /*****************************************
-     * KPI CLICK EVENTS
-     *****************************************/
+    * KPI CLICK EVENTS - UPDATED COLUMN NAMES
+    *****************************************/
     document.getElementById("outstanding-amount").onclick = () => {
         const today = new Date("2025-12-20");
         const rows = salesBookData
-            .filter(s => new Date(s.dueDate) <= today)
+            .filter(s => new Date(s.Due_Date) <= today)
             .map(s => ({
-                invoiceNo: s.invoiceNo,
-                date: s.date,
-                dueDate: s.dueDate,
-                value: s.value,
-                link: s.link ? `<a href="${s.link}" target="_blank" style="color:#d32f2f;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : "",
-                ponumberPdf: s.ponumberPdf ? `<a href="${s.ponumberPdf}" target="_blank" style="color:#d32f2f;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
+                Invoice_No: s.Invoice_No,
+                Date: s.Date,
+                Due_Date: s.Due_Date,
+                Value: s.Value,
+                Link: s.Link ? `<a href="${s.Link}" target="_blank" style="color:#d32f2f;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
             }));
-        openDrilldown("Outstanding Invoices", ["invoiceNo","date","dueDate","value","link"], rows);
+        openDrilldown("Outstanding Invoices", ["Invoice_No","Date","Due_Date","Value","Link"], rows);
     };
 
     document.getElementById("pending-dispatch").onclick = () => {
         const rows = orderBookData
-            .filter(o => (o.status || "").toLowerCase() === "incomplete")
+            .filter(o => (o.Status || "").toLowerCase() === "incomplete")
             .map(o => ({
-                date: o.date,
-                poNumber: o.poNumber,
-                jobName: o.jobName,
-                orderQty: o.orderQty,
-                dispQty: o.dispQty,
-                status: o.status,
-                value: o.value,
-                poPdf: o.poPdf ? `<a href="${o.poPdf}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : "",
-                link: o.link ? `<a href="${o.link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
+                Login_Date: o.Login_Date,
+                PO_Number: o.PO_Number,
+                Job_Name: o.Job_Name,
+                Order_Qty: o.Order_Qty,
+                Dispatch_Qty: o.Dispatch_Qty,
+                Status: o.Status,
+                Value: o.Value,
+                Link: o.Link ? `<a href="${o.Link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
             }));
-        openDrilldown("Pending Dispatch Orders", ["date","poNumber","jobName","orderQty","dispQty","status","value","link"], rows);
+        openDrilldown("Pending Dispatch Orders", ["Login_Date","PO_Number","Job_Name","Order_Qty","Dispatch_Qty","Status","Value","Link"], rows);
     };
 
     document.getElementById("ytd-sale").onclick = () => {
         const rows = salesBookData.map(s => ({
-            invoiceNo: s.invoiceNo,
-            date: s.date,
-            value: s.value,
-            ponumberPdf: s.ponumberPdf ? `<a href="${s.ponumberPdf}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : "",
-            link: s.link ? `<a href="${s.link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
+            Invoice_No: s.Invoice_No,
+            Date: s.Date,
+            Value: s.Value,
+            Link: s.Link ? `<a href="${s.Link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
         }));
-        openDrilldown("YTD Sales", ["invoiceNo","date","value","link"], rows);
+        openDrilldown("YTD Sales", ["Invoice_No","Date","Value","Link"], rows);
     };
 
     document.getElementById("current-month-sale").onclick = () => {
         const month = new Date().toISOString().slice(0,7);
         const rows = salesBookData
-            .filter(s => s.date && s.date.startsWith(month))
+            .filter(s => s.Date && s.Date.startsWith(month))
             .map(s => ({
-                invoiceNo: s.invoiceNo,
-                date: s.date,
-                value: s.value,
-                ponumberPdf: s.ponumberPdf ? `<a href="${s.ponumberPdf}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : "",
-                link: s.link ? `<a href="${s.link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
+                Invoice_No: s.Invoice_No,
+                Date: s.Date,
+                Value: s.Value,
+                Link: s.Link ? `<a href="${s.Link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
             }));
-        openDrilldown(`Current Month Sales (${month})`, ["invoiceNo","date","value","link"], rows);
+        openDrilldown(`Current Month Sales (${month})`, ["Invoice_No","Date","Value","Link"], rows);
     };
 
     document.getElementById("completion-rate").onclick = () => {
         const totalOrders = orderBookData.length;
-        const completedOrders = orderBookData.filter(o => (o.status || "").toLowerCase() === "complete").length;
+        const completedOrders = orderBookData.filter(o => (o.Status || "").toLowerCase() === "complete").length;
         const rows = orderBookData.map(o => ({
-            date: o.date,
-            poNumber: o.poNumber,
-            jobName: o.jobName,
-            status: o.status,
-            value: o.value,
-            poPdf: o.poPdf ? `<a href="${o.poPdf}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : "",
-            link: o.link ? `<a href="${o.link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
+            Login_Date: o.Login_Date,
+            PO_Number: o.PO_Number,
+            Job_Name: o.Job_Name,
+            Status: o.Status,
+            Value: o.Value,
+            Link: o.Link ? `<a href="${o.Link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
         }));
-        openDrilldown(`Completion Rate (${completedOrders}/${totalOrders})`, ["date","poNumber","jobName","status","value","link"], rows);
+        openDrilldown(`Completion Rate (${completedOrders}/${totalOrders})`, ["Login_Date","PO_Number","Job_Name","Status","Value","Link"], rows);
     };
 
     document.getElementById("total-sku-count").onclick = () => {
@@ -163,37 +146,39 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("item-master-count").onclick = () => {
         const rows = itemMasterData.map(i => ({
-            itemCode: i.itemCode || "",
-            jobsName: i.jobsName || "",
-            labelSize: i.labelSize || "",
-            materialType: i.materialType || "",
-            inventory: i.inventory || "",
-            artworkId: i.artworkId || "",
-            artworkFile: i.artworkFile ? `<a href="${i.artworkFile}" target="_blank">VIEW</a>` : ""
+            Item_Code: i.Item_Code || "",
+            Jobs_Name: i.Jobs_Name || "",
+            Label_Size: i.Label_Size || "",
+            Material_Type: i.Material_Type || "",
+            Inventory: i.Inventory || "",
+            Artwork_ID: i.Artwork_ID || "",
+            Artwork_file: i.Artwork_file ? `<a href="${i.Artwork_file}" target="_blank">VIEW</a>` : ""
         }));
-        openDrilldown("Item Master List", ["itemCode","jobsName","labelSize","materialType","inventory","artworkId","artworkFile"], rows);
+        openDrilldown("Item Master List", ["Item_Code","Jobs_Name","Label_Size","Material_Type","Inventory","Artwork_ID","Artwork_file"], rows);
         applyTableSlider();
     };
 
     const clearBtn = document.getElementById("clearSkuFilterBtn");
-    clearBtn.onclick = () => clearSkuSelection();
+    if (clearBtn) clearBtn.onclick = () => clearSkuSelection();
 
     /*****************************************
-     * CHARTS INITIALIZATION
-     *****************************************/
+    * CHARTS INITIALIZATION
+    *****************************************/
     renderMonthlyChart();
     renderMonthlyPOTrend();
     renderOrderCompletionPie();
 
     const skuMonthFilter = document.getElementById("skuMonthFilter");
-    skuMonthFilter.value = new Date().toISOString().slice(0, 7);
-    renderSkuListByMonth(skuMonthFilter.value);
-    skuMonthFilter.addEventListener("change", () => renderSkuListByMonth(skuMonthFilter.value));
+    if (skuMonthFilter) {
+        skuMonthFilter.value = new Date().toISOString().slice(0, 7);
+        renderSkuListByMonth(skuMonthFilter.value);
+        skuMonthFilter.addEventListener("change", () => renderSkuListByMonth(skuMonthFilter.value));
+    }
 });
 
 /*****************************************
- * DIGITAL CLOCK
- *****************************************/
+* DIGITAL CLOCK
+*****************************************/
 function startDigitalClock() {
     const clock = document.getElementById("digitalClock");
     function updateClock() {
@@ -208,8 +193,8 @@ function startDigitalClock() {
 }
 
 /*****************************************
- * ALL SKUs MONTHLY TREND (Initial Display)
- *****************************************/
+* ALL SKUs MONTHLY TREND (Initial Display)
+*****************************************/
 function renderAllSkusMonthlyTrend() {
     dashboardState.currentView = 'all-skus';
     localStorage.setItem('jainyticDashboard', JSON.stringify(dashboardState));
@@ -251,7 +236,7 @@ function renderAllSkusMonthlyTrend() {
             maintainAspectRatio: false,
             scales: {
                 x: { ticks: { autoSkip: true, maxRotation: 30, minRotation: 30 } },
-                y: { beginAtZero: true, position: "left", title: { display: false, text: "Dispatch Qty" } },
+                y: { beginAtZero: true, position: "left", title: { display: true, text: "Dispatch Qty" } },
                 y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "PO Count" } }
             },
             plugins: {
@@ -275,49 +260,48 @@ function renderAllSkusMonthlyTrend() {
     });
 
     renderAllSkusMonthlyRankList(series);
-    // Removed auto-scroll to prevent jumping
+    card.scrollIntoView({ behavior: "smooth" });
 }
 
 /*****************************************
- * PREPARE DATA FOR ALL SKUs TREND
- *****************************************/
+* PREPARE DATA FOR ALL SKUs TREND - FIXED COLUMNS
+*****************************************/
 function prepareAllSkusMonthlyDispatch(orderBookData) {
     const monthMap = {};
     orderBookData.forEach(o => {
-        if (!o.date || !o.dispQty) return;
-        const month = o.date.slice(0, 7);
-        const dispQty = Number(o.dispQty) || 0;
-        const poCount = Number(o.poCount) || 1;
-        if (!monthMap[month]) monthMap[month] = { dispatchQty: 0, poCount: 0 };
-        monthMap[month].dispatchQty += dispQty;
-        monthMap[month].poCount += poCount;
+        if (!o.Login_Date || !o.Dispatch_Qty) return;
+        const month = o.Login_Date.slice(0, 7);
+        const dispQty = Number(o.Dispatch_Qty) || 0;
+        if (!monthMap[month]) monthMap[month] = { Dispatch_Qty: 0, poCount: 0 };
+        monthMap[month].Dispatch_Qty += dispQty;
+        monthMap[month].poCount += 1;
     });
 
     const sortedMonths = Object.keys(monthMap).sort();
     return {
         labels: sortedMonths.map(m => monthLabelFromKey(m)),
-        values: sortedMonths.map(m => monthMap[m].dispatchQty),
+        values: sortedMonths.map(m => monthMap[m].Dispatch_Qty),
         poCounts: sortedMonths.map(m => monthMap[m].poCount),
         months: sortedMonths
     };
 }
 
 /*****************************************
- * Drill to SKUs for specific month
- *****************************************/
+* Drill to SKUs for specific month
+*****************************************/
 function openSkuSummaryByMonth(month) {
     const data = prepareMonthlySkuSummary(orderBookData, month);
-    openDrilldown(`Top SKUs - ${monthLabelFromKey(month)}`, ["sku", "dispatchQty", "poCount"], data);
+    openDrilldown(`Top SKUs - ${monthLabelFromKey(month)}`, ["sku", "Dispatch_Qty", "poCount"], data);
 }
 
 function prepareMonthlySkuSummary(orderBookData, month) {
-    const filteredData = orderBookData.filter(o => o.date && o.date.startsWith(month));
+    const filteredData = orderBookData.filter(o => o.Login_Date && o.Login_Date.startsWith(month));
     return prepareSkuSummary(filteredData);
 }
 
 /*****************************************
- * MONTHLY SALES CHART
- *****************************************/
+* MONTHLY SALES CHART - FIXED COLUMNS
+*****************************************/
 function renderMonthlyChart() {
     const series = prepareMonthlySalesSeries(salesBookData);
     const ctx = document.getElementById("monthlySalesChart").getContext("2d");
@@ -342,25 +326,24 @@ function renderMonthlyChart() {
                 const idx = elements[0].index;
                 const month = series.months[idx];
                 const rows = orderBookData
-                    .filter(o => o.date && o.date.startsWith(month))
+                    .filter(o => o.Login_Date && o.Login_Date.startsWith(month))
                     .map(o => ({
-                        date: o.date,
-                        poNumber: o.poNumber,
-                        jobName: o.jobName,
-                        status: o.status,
-                        value: o.value,
-                        link: o.link ? `<a href="${o.link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : "",
-                        poPdf: o.poPdf ? `<a href="${o.poPdf}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
+                        Login_Date: o.Login_Date,
+                        PO_Number: o.PO_Number,
+                        Job_Name: o.Job_Name,
+                        Status: o.Status,
+                        Value: o.Value,
+                        Link: o.Link ? `<a href="${o.Link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
                     }));
-                openDrilldown(`Orders - ${series.labels[idx]}`, ["date","poNumber","jobName","status","value","link"], rows);
+                openDrilldown(`Orders - ${series.labels[idx]}`, ["Login_Date","PO_Number","Job_Name","Status","Value","Link"], rows);
             }
         }
     });
 }
 
 /*****************************************
- * MONTHLY PO CHART
- *****************************************/
+* MONTHLY PO CHART - FIXED COLUMNS
+*****************************************/
 function renderMonthlyPOTrend() {
     const po = prepareMonthlyPOSeries(orderBookData);
     const ctx = document.getElementById("monthlyPOChart").getContext("2d");
@@ -384,27 +367,26 @@ function renderMonthlyPOTrend() {
                 const idx = items[0].index;
                 const month = po.months[idx];
                 const rows = orderBookData
-                    .filter(o => o.date && o.date.startsWith(month))
+                    .filter(o => o.Login_Date && o.Login_Date.startsWith(month))
                     .map(o => ({
-                        date: o.date,
-                        poNumber: o.poNumber,
-                        brand: o.brand,
-                        orderQty: o.orderQty,
-                        dispQty: o.dispQty,
-                        status: o.status,
-                        value: o.value,
-                        link: o.link ? `<a href="${o.link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
+                        Login_Date: o.Login_Date,
+                        PO_Number: o.PO_Number,
+                        Job_Name: o.Job_Name,
+                        Status: o.Status,
+                        Value: o.Value,
+                        Dispatch_Qty: o.Dispatch_Qty,
+                        Link: o.Link ? `<a href="${o.Link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
                     }));
                 const titleMonth = monthLabelFromKey(month);
-                openDrilldown(`PO Details - ${titleMonth}`, ["date","poNumber","brand","orderQty","dispQty","status","value","link"], rows);
+                openDrilldown(`PO Details - ${titleMonth}`, ["Login_Date","PO_Number","Job_Name","Status","Value","Dispatch_Qty","Link"], rows);
             }
         }
     });
 }
 
 /*****************************************
- * ORDER COMPLETION PIE CHART
- *****************************************/
+* ORDER COMPLETION PIE CHART - FIXED COLUMNS
+*****************************************/
 function renderOrderCompletionPie() {
     const data = prepareOrderCompletionStatus(orderBookData);
     const ctx = document.getElementById("orderCompletionPie").getContext("2d");
@@ -436,59 +418,59 @@ function renderOrderCompletionPie() {
                 const idx = items[0].index;
                 const rows = (idx === 0 ? data.completed : data.incomplete)
                     .map(o => ({
-                        date: o.date,
-                        poNumber: o.poNumber,
-                        brand: o.brand,
-                        orderQty: o.orderQty,
-                        dispQty: o.dispQty,
-                        status: o.status,
-                        value: o.value,
-                        link: o.link ? `<a href="${o.link}" target="_blank">VIEW</a>` : ""
+                        Login_Date: o.Login_Date,
+                        PO_Number: o.PO_Number,
+                        Job_Name: o.Job_Name,
+                        Status: o.Status,
+                        Value: o.Value,
+                        Link: o.Link ? `<a href="${o.Link}" target="_blank">VIEW</a>` : ""
                     }));
-                openDrilldown(`Order Status - ${data.labels[idx]}`, ["date", "poNumber", "brand", "orderQty", "dispQty", "status", "value", "link"], rows);
+                openDrilldown(`Order Status - ${data.labels[idx]}`, ["Login_Date", "PO_Number", "Job_Name", "Status", "Value", "Link"], rows);
             }
         }
     });
 }
 
 /*****************************************
- * SKU SUMMARY DRILLDOWN
- *****************************************/
+* SKU SUMMARY DRILLDOWN - FIXED COLUMNS
+*****************************************/
 function openSkuSummary() {
     const data = prepareSkuSummary(orderBookData);
-    openDrilldown("SKU Summary (Click SKU for Monthly Trend)", ["sku", "dispatchQty", "poCount"], data);
+    openDrilldown("SKU Summary (Click SKU for Monthly Trend)", ["sku", "Dispatch_Qty", "poCount"], data);
 
     const clearBtn = document.getElementById("clearSkuFilterBtn");
-    clearBtn.style.display = "block";
+    if (clearBtn) clearBtn.style.display = "block";
 
     setTimeout(() => {
         const tbody = document.getElementById("drilldown-body");
-        [...tbody.rows].forEach((row, idx) => {
-            row.style.cursor = "pointer";
-            row.onclick = () => {
-                autoCloseDrilldown();
-                renderSkuMonthlyChart(data[idx].sku);
-            };
-        });
+        if (tbody) {
+            [...tbody.rows].forEach((row, idx) => {
+                row.style.cursor = "pointer";
+                row.onclick = () => {
+                    autoCloseDrilldown();
+                    renderSkuMonthlyChart(data[idx].sku);
+                };
+            });
+        }
     }, 50);
 }
 
 /*****************************************
- * CLEAR SELECTION - BACK TO ALL SKUs
- *****************************************/
+* CLEAR SELECTION - BACK TO ALL SKUs
+*****************************************/
 function clearSkuSelection() {
     dashboardState.currentView = 'all-skus';
     localStorage.setItem('jainyticDashboard', JSON.stringify(dashboardState));
 
     const clearBtn = document.getElementById("clearSkuFilterBtn");
-    clearBtn.style.display = "none";
+    if (clearBtn) clearBtn.style.display = "none";
 
     renderAllSkusMonthlyTrend();
 }
 
 /*****************************************
- * SPECIFIC SKU MONTHLY CHART
- *****************************************/
+* SPECIFIC SKU MONTHLY CHART - FIXED COLUMNS
+*****************************************/
 function renderSkuMonthlyChart(sku) {
     dashboardState.currentView = 'sku';
     dashboardState.selectedSku = sku;
@@ -534,76 +516,74 @@ function renderSkuMonthlyChart(sku) {
 }
 
 /*****************************************
- * SKU LIST BY MONTH
- *****************************************/
+* SKU LIST BY MONTH - FIXED COLUMNS
+*****************************************/
 function renderSkuListByMonth(month) {
     const skuMap = {};
     orderBookData
-        .filter(o => o.date && (!month || o.date.startsWith(month)))
+        .filter(o => o.Login_Date && (!month || o.Login_Date.startsWith(month)))
         .forEach(o => {
-            const sku = o.jobName || "Unknown SKU";
-            const orderQty = Number(o.orderQty) || 0;
-            const dispQty = Number(o.dispQty) || 0;
-            const value = Number(o.value) || 0;
+            const sku = o.Job_Name || "Unknown SKU";
+            const orderQty = Number(o.Order_Qty) || 0;
+            const dispQty = Number(o.Dispatch_Qty) || 0;
+            const value = Number(o.Value) || 0;
 
             if (!skuMap[sku]) {
                 skuMap[sku] = {
                     sku,
                     poCount: 0,
-                    orderQty: 0,
-                    dispatchQty: 0,
+                    Order_Qty: 0,
+                    Dispatch_Qty: 0,
                     pendingQty: 0,
-                    value: 0,
+                    Value: 0,
                     rows: []
                 };
             }
 
             skuMap[sku].poCount += 1;
-            skuMap[sku].orderQty += orderQty;
-            skuMap[sku].dispatchQty += dispQty;
-            skuMap[sku].pendingQty += (o.status || "").toLowerCase() === "incomplete" ? (orderQty - dispQty) : 0;
-            skuMap[sku].value += value;
+            skuMap[sku].Order_Qty += orderQty;
+            skuMap[sku].Dispatch_Qty += dispQty;
+            skuMap[sku].pendingQty += (o.Status || "").toLowerCase() === "incomplete" ? (orderQty - dispQty) : 0;
+            skuMap[sku].Value += value;
             skuMap[sku].rows.push(o);
         });
 
-    const sorted = Object.values(skuMap).sort((a, b) => b.dispatchQty - a.dispatchQty);
+    const sorted = Object.values(skuMap).sort((a, b) => b.Dispatch_Qty - a.Dispatch_Qty);
     const tbody = document.getElementById("skuListBody");
-    tbody.innerHTML = "";
+    if (tbody) tbody.innerHTML = "";
 
     sorted.forEach(s => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${s.sku}</td>
             <td align='center'>${s.poCount.toLocaleString()}</td>
-            <td align='center'>${s.orderQty.toLocaleString()}</td>
-            <td align='center'>${s.dispatchQty.toLocaleString()}</td>
+            <td align='center'>${s.Order_Qty.toLocaleString()}</td>
+            <td align='center'>${s.Dispatch_Qty.toLocaleString()}</td>
             <td align='center'>${s.pendingQty.toLocaleString()}</td>
         `;
         tr.onclick = () => {
             const rows = s.rows.map(o => ({
-                date: o.date,
-                poNumber: o.poNumber,
-                brand: o.brand,
-                orderQty: o.orderQty,
-                dispQty: o.dispQty,
-                status: o.status,
-                value: o.value,
-                link: o.link ? `<a href="${o.link}" target="_blank">VIEW</a>` : ""
+                Login_Date: o.Login_Date,
+                PO_Number: o.PO_Number,
+                Job_Name: o.Job_Name,
+                Status: o.Status,
+                Value: o.Value,
+                Link: o.Link ? `<a href="${o.Link}" target="_blank">VIEW</a>` : ""
             }));
-            openDrilldown(`SKU Details - ${s.sku}`, ["date", "poNumber", "brand", "orderQty", "dispQty", "status", "value", "link"], rows);
+            openDrilldown(`SKU Details - ${s.sku}`, ["Login_Date", "PO_Number", "Job_Name", "Status", "Value", "Link"], rows);
         };
-        tbody.appendChild(tr);
+        if (tbody) tbody.appendChild(tr);
     });
 }
 
 /*****************************************
- * TOP SKUs BY DISPATCH
- *****************************************/
+* TOP SKUs BY DISPATCH - FIXED COLUMNS
+*****************************************/
 function renderTopSkusByDispatch(orderBookData, limit = 20) {
     const skuMap = {};
     orderBookData.forEach(row => {
-        const sku = (row.jobName || row.SKU || row.product || "").trim();
-        const qty = Number(row.dispQty || 0);
+        const sku = (row.Job_Name || row.Brand || "Unknown SKU").trim();
+        const qty = Number(row.Dispatch_Qty || 0);
         if (!sku || qty <= 0) return;
         skuMap[sku] = (skuMap[sku] || 0) + qty;
     });
@@ -614,6 +594,8 @@ function renderTopSkusByDispatch(orderBookData, limit = 20) {
         .slice(0, limit);
 
     const container = document.getElementById("topSkuList");
+    if (!container) return;
+
     container.innerHTML = "";
 
     if (!sortedSkus.length) {
@@ -634,8 +616,8 @@ function renderTopSkusByDispatch(orderBookData, limit = 20) {
 }
 
 /*****************************************
- * UTILITY FUNCTIONS
- *****************************************/
+* UTILITY FUNCTIONS
+*****************************************/
 function autoCloseDrilldown() {
     const modal = document.getElementById("drilldown-modal");
     const overlay = document.getElementById("drilldown-overlay");
@@ -667,22 +649,23 @@ function renderAllSkusMonthlyRankList(series) {
         container.style.maxHeight = "260px";
         container.style.overflowY = "auto";
         container.style.borderTop = "1px solid #eee";
-        document.getElementById("skuMonthlyChartCard").appendChild(container);
+        const card = document.getElementById("skuMonthlyChartCard");
+        if (card) card.appendChild(container);
     }
 
     const rows = series.labels.map((m, i) => ({
         month: m,
-        dispatchQty: series.values[i],
+        Dispatch_Qty: series.values[i],
         poCount: series.poCounts[i]
     }));
 
-    rows.sort((a, b) => b.dispatchQty - a.dispatchQty);
+    rows.sort((a, b) => b.Dispatch_Qty - a.Dispatch_Qty);
 
     container.innerHTML = rows.map((r, i) => `
         <div class="sku-item" style="cursor:pointer; padding: 8px 12px; border-bottom: 1px solid #f0f0f0;"
              onclick="highlightMonthOnChart('${r.month}')">
           <span><strong>${i + 1}.</strong> ${r.month}</span>
-          <span style="color: #34618fff; font-weight: 500;">${r.dispatchQty.toLocaleString()} Qty</span>
+          <span style="color: #34618fff; font-weight: 500;">${r.Dispatch_Qty.toLocaleString()} Qty</span>
           <span style="color: #ff7300ff; margin-left: 10px;">${r.poCount} PO</span>
         </div>
     `).join("");
@@ -697,7 +680,8 @@ function renderSkuMonthlyRankList(series) {
         container.style.maxHeight = "260px";
         container.style.overflowY = "auto";
         container.style.borderTop = "1px solid #eee";
-        document.getElementById("skuMonthlyChartCard").appendChild(container);
+        const card = document.getElementById("skuMonthlyChartCard");
+        if (card) card.appendChild(container);
     }
 
     const rows = series.labels.map((m, i) => ({

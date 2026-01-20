@@ -1,11 +1,32 @@
+// ===== UTIL FUNCTIONS =====
+function sumBy(arr, selector) {
+    return arr.reduce((s, x) => s + (selector(x) || 0), 0);
+}
+
+function monthKey(dateStr) {
+    return dateStr ? dateStr.slice(0, 7) : "";
+}
+
+function monthLabelFromKey(monthKey) {
+    const [y, m] = monthKey.split("-");
+    return new Date(y, m - 1).toLocaleString("en-IN", {
+        month: "long",
+        year: "numeric"
+    });
+}
+
+// Global unique item codes for KPI display
+const uniqueItemCodes = itemMasterData ? new Set(itemMasterData.map(i => i.Item_Code)) : new Set();
+
+// ===== 1. FILTER DATA BY MONTH =====
 function filterDataByMonth() {
     const monthSelector = document.getElementById("monthSelector");
-    const selectedMonth = monthSelector.value;
+    const selectedMonth = monthSelector ? monthSelector.value : "";
     
     if (!selectedMonth) return;
     
-    const filteredSales = salesBook.filter(s => monthKey(s.date) === selectedMonth);
-    const filteredOrders = orderBook.filter(o => monthKey(o.date) === selectedMonth);
+    const filteredSales = salesBookData.filter(s => monthKey(s.Date) === selectedMonth);
+    const filteredOrders = orderBookData.filter(o => monthKey(o.Login_Date) === selectedMonth);
     
     // Recalculate KPIs for selected month
     const kpi = calculateKPIs(filteredOrders, filteredSales);
@@ -17,25 +38,17 @@ function filterDataByMonth() {
     
     return { filteredSales, filteredOrders };
 }
-// ===== UTIL =====
-function sumBy(arr, selector) {
-    return arr.reduce((s, x) => s + (selector(x) || 0), 0);
-}
 
-function monthKey(dateStr) {
-    return dateStr ? dateStr.slice(0, 7) : "";
-}
-
-// ===== 1. FINANCIAL OVERVIEW =====
-function calculateFinancialOverview(salesBook, todayStr = "2025-12-20") {
-    const uniqueInvoices = new Set(salesBook.map(x => x.invoiceNo)).size;
+// ===== 2. FINANCIAL OVERVIEW - FIXED COLUMNS =====
+function calculateFinancialOverview(salesBookData, todayStr = "2025-12-20") {
+    const uniqueInvoices = new Set(salesBookData.map(x => x.Invoice_No)).size;
 
     const today = new Date(todayStr);
     let outstandingAmount = 0;
 
-    salesBook.forEach(inv => {
-        const due = new Date(inv.dueDate);
-        if (due <= today) outstandingAmount += (inv.value || 0);
+    salesBookData.forEach(inv => {
+        const due = new Date(inv.Due_Date);
+        if (due <= today) outstandingAmount += (inv.Value || 0);
     });
 
     return {
@@ -44,49 +57,49 @@ function calculateFinancialOverview(salesBook, todayStr = "2025-12-20") {
     };
 }
 
-// ===== 2. PENDING DISPATCH (Option B — Remaining Value) =====
-function calculatePendingDispatch(orderBook) {
+// ===== 3. PENDING DISPATCH - FIXED COLUMNS =====
+function calculatePendingDispatch(orderBookData) {
     let totalRemaining = 0;
 
-    orderBook.forEach(o => {
-        if ((o.status || "").toLowerCase() === "incomplete" && o.value) {
-            totalRemaining += o.value;
+    orderBookData.forEach(o => {
+        if ((o.Status || "").toLowerCase() === "incomplete" && o.Value) {
+            totalRemaining += o.Value;
         }
     });
 
     return totalRemaining / 100000;
 }
 
-// ===== 3. KPI CALCULATIONS =====
-function calculateKPIs(orderBook, salesBook) {
-    const normalizedSales = salesBook.map(x => ({
+// ===== 4. KPI CALCULATIONS - FIXED COLUMNS =====
+function calculateKPIs(orderBookData, salesBookData) {
+    const normalizedSales = salesBookData.map(x => ({
         ...x,
-        date: x.date ? x.date.slice(0, 10) : ""
+        Date: x.Date ? x.Date.slice(0, 10) : ""
     }));
 
-    const ytdSales = sumBy(normalizedSales, x => x.value) / 100000;
+    const ytdSales = sumBy(normalizedSales, x => x.Value) / 100000;
 
     const uniqueMonths = new Set(
-        normalizedSales.map(x => monthKey(x.date)).filter(Boolean)
+        normalizedSales.map(x => monthKey(x.Date)).filter(Boolean)
     );
     const avgMonthlySale = ytdSales / (uniqueMonths.size || 1);
 
-    const uniquePOs = new Set(orderBook.map(x => x.poNumber)).size;
+    const uniquePOs = new Set(orderBookData.map(x => x.PO_Number)).size;
 
     const now = new Date();
     const currentMonth = now.toISOString().slice(0, 7);
 
     const currentMonthSales = sumBy(
-        normalizedSales.filter(x => monthKey(x.date) === currentMonth),
-        x => x.value
+        normalizedSales.filter(x => monthKey(x.Date) === currentMonth),
+        x => x.Value
     ) / 100000;
 
-    const totalSKU = new Set(orderBook.map(x => x.jobName)).size;
+    const totalSKU = new Set(orderBookData.map(x => x.Job_Name)).size;
 
-    const totalPOValue = sumBy(orderBook, x => x.value);
+    const totalPOValue = sumBy(orderBookData, x => x.Value);
     const completeValue = sumBy(
-        orderBook.filter(o => (o.status || "").toLowerCase() === "complete"),
-        x => x.value
+        orderBookData.filter(o => (o.Status || "").toLowerCase() === "complete"),
+        x => x.Value
     );
     const completionRate = totalPOValue ? (completeValue / totalPOValue) * 100 : 0;
 
@@ -102,13 +115,13 @@ function calculateKPIs(orderBook, salesBook) {
     };
 }
 
-// ===== 4. MONTHLY SALES SERIES =====
-function prepareMonthlySalesSeries(salesBook) {
+// ===== 5. MONTHLY SALES SERIES - FIXED COLUMNS =====
+function prepareMonthlySalesSeries(salesBookData) {
     const months = ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02"];
-    const labels = [ "October 2025", "November 2025", "December 2025", "January 2026"," February 2026"];
+    const labels = ["October 2025", "November 2025", "December 2025", "January 2026", "February 2026"];
 
     const sales = months.map(m =>
-        sumBy(salesBook.filter(s => monthKey(s.date) === m), x => x.value) / 100000
+        sumBy(salesBookData.filter(s => monthKey(s.Date) === m), x => x.Value) / 100000
     );
 
     const growth = sales.map((v, i) => i === 0 ? 0 : ((v - sales[i - 1]) / (sales[i - 1] || 1)) * 100);
@@ -121,23 +134,15 @@ function prepareMonthlySalesSeries(salesBook) {
     return { labels, months, sales, growth, cumulative, barColors };
 }
 
-// ===== 5. MONTHLY PO SERIES =====
-function monthLabelFromKey(monthKey) {
-    const [y, m] = monthKey.split("-");
-    return new Date(y, m - 1).toLocaleString("en-IN", {
-        month: "long",
-        year: "numeric"
-    });
-}
+// ===== 6. MONTHLY PO SERIES - FIXED COLUMNS =====
+function prepareMonthlyPOSeries(orderBookData) {
+    const months = ["2025-10", "2025-11", "2025-12", "2026-01"];
+    const labels = ["October 2025", "November 2025", "December 2025", "January 2026"];
 
-function prepareMonthlyPOSeries(orderBook) {
-    const months = ["2025-10", "2025-11", "2025-12"];
-    const labels = ["October 2025", "November 2025", "December 2025","January 2026"];
-
-    const poCount = months.map(m => orderBook.filter(o => monthKey(o.date) === m && o.value).length);
+    const poCount = months.map(m => orderBookData.filter(o => monthKey(o.Login_Date) === m && o.Value).length);
 
     const poValue = months.map(m =>
-        sumBy(orderBook.filter(o => monthKey(o.date) === m && o.value), x => x.value) / 100000
+        sumBy(orderBookData.filter(o => monthKey(o.Login_Date) === m && o.Value), x => x.Value) / 100000
     );
 
     const growth = poValue.map((v, i) => i === 0 ? 0 : ((v - poValue[i - 1]) / (poValue[i - 1] || 1)) * 100);
@@ -145,71 +150,59 @@ function prepareMonthlyPOSeries(orderBook) {
     return { labels, months, poCount, poValue, growth };
 }
 
-// ===== 6. PRODUCT DISTRIBUTION =====
-function prepareCompletionPieData(orderBook) {
-    let completeValue = 0;
-    let incompleteValue = 0;
-    let completeCount = 0;
-    let incompleteCount = 0;
+// ===== 7. ORDER COMPLETION STATUS - FIXED COLUMNS =====
+function prepareOrderCompletionStatus(orderBookData) {
+    const completed = orderBookData.filter(
+        o => (o.Status || "").toLowerCase() === "complete"
+    );
 
-    orderBook.forEach(o => {
-        const status = (o.status || "").toLowerCase();
-        const val = o.value || 0;
-
-        if (status === "complete") {
-            completeValue += val;
-            completeCount++;
-        }
-
-        if (status === "incomplete") {
-            incompleteValue += val;
-            incompleteCount++;
-        }
-    });
+    const incomplete = orderBookData.filter(
+        o => (o.Status || "").toLowerCase() !== "complete"
+    );
 
     return {
-        labels: ["Complete", "Incomplete"],
-        values: [completeValue / 100000, incompleteValue / 100000],
-        counts: [completeCount, incompleteCount]
+        labels: ["Completed", "Incomplete"],
+        valueLakh: [
+            completed.reduce((s, x) => s + (x.Value || 0), 0) / 100000,
+            incomplete.reduce((s, x) => s + (x.Value || 0), 0) / 100000
+        ],
+        poCount: [
+            completed.length,
+            incomplete.length
+        ],
+        completed,
+        incomplete
     };
 }
 
-// ===== 7. COMPLETION =====
-function prepareCompletionChartData(kpi, pendingDispatchInLakh) {
-    return {
-        labels: ["Total PO Value", "Complete Value", "Pending Value"],
-        values: [kpi.totalPOValue, kpi.completeValue, pendingDispatchInLakh]
-    };
-}
-
-// ===== 8. TOP SKUs =====
-function prepareTopSKUs(orderBook, topN = 8) {
+// ===== 8. TOP SKUs PREPARATION - FIXED COLUMNS =====
+function prepareTopSKUs(orderBookData, topN = 8) {
     const jobDispatchMap = {};
 
-    orderBook.forEach(o => {
-        if (!o.jobName) return;
-        const qtyOrder = Number(o.orderQty) || 0;
-        const qtyDisp = Number(o.dispQty) || 0;
+    orderBookData.forEach(o => {
+        if (!o.Job_Name) return;
+        const qtyOrder = Number(o.Order_Qty) || 0;
+        const qtyDisp = Number(o.Dispatch_Qty) || 0;
 
-        if (!jobDispatchMap[o.jobName]) {
-            jobDispatchMap[o.jobName] = {
-                jobName: o.jobName,
-                brand: o.brand,
+        if (!jobDispatchMap[o.Job_Name]) {
+            jobDispatchMap[o.Job_Name] = {
+                Job_Name: o.Job_Name,
+                Brand: o.Brand,
                 totalOrder: 0,
                 totalDispatch: 0,
                 poSet: new Set()
             };
         }
 
-        const item = jobDispatchMap[o.jobName];
+        const item = jobDispatchMap[o.Job_Name];
         item.totalOrder += qtyOrder;
         item.totalDispatch += qtyDisp;
-        item.poSet.add(o.poNumber);
+        item.poSet.add(o.PO_Number);
     });
 
     const arr = Object.values(jobDispatchMap).map(x => ({
-        jobName: x.jobName,
-        brand: x.brand,
+        Job_Name: x.Job_Name,
+        Brand: x.Brand,
         totalOrder: x.totalOrder,
         totalDispatch: x.totalDispatch,
         poCount: x.poSet.size
@@ -223,89 +216,46 @@ function prepareTopSKUs(orderBook, topN = 8) {
     return { top, totalDispatchQty };
 }
 
-function prepareOrderCompletionStatus(orderBook) {
-    const completed = orderBook.filter(
-        o => (o.status || "").toLowerCase() === "complete"
-    );
-
-    const incomplete = orderBook.filter(
-        o => (o.status || "").toLowerCase() !== "complete"
-    );
-
-    return {
-        labels: ["Completed", "Incomplete"],
-        valueLakh: [
-            completed.reduce((s, x) => s + (x.value || 0), 0) / 100000,
-            incomplete.reduce((s, x) => s + (x.value || 0), 0) / 100000
-        ],
-        poCount: [
-            completed.length,
-            incomplete.length
-        ],
-        completed,
-        incomplete
-    };
-}
-// ===== UTIL =====
-function sumBy(arr, selector) {
-    return arr.reduce((s, x) => s + (selector(x) || 0), 0);
-}
-
-function monthKey(dateStr) {
-    return dateStr ? dateStr.slice(0, 7) : "";
-}
-
-function monthLabelFromKey(monthKey) {
-    const [y, m] = monthKey.split("-");
-    return new Date(y, m - 1).toLocaleString("en-IN", {
-        month: "long",
-        year: "numeric"
-    });
-}
-
-// ===== EXISTING LOGIC (UNCHANGED) =====
-// (your full original logic remains as-is)
-
-// ===== ADDITION: SKU SUMMARY =====
-function prepareSkuSummary(orderBook) {
+// ===== 9. SKU SUMMARY - FIXED COLUMNS =====
+function prepareSkuSummary(orderBookData) {
     const map = {};
 
-    orderBook.forEach(o => {
-        if (!o.jobName) return;
+    orderBookData.forEach(o => {
+        if (!o.Job_Name) return;
 
-        const qty = Number(o.dispQty) || 0;
+        const qty = Number(o.Dispatch_Qty) || 0;
 
-        if (!map[o.jobName]) {
-            map[o.jobName] = {
-                sku: o.jobName,
+        if (!map[o.Job_Name]) {
+            map[o.Job_Name] = {
+                sku: o.Job_Name,
                 totalDispatch: 0,
                 poSet: new Set()
             };
         }
 
-        map[o.jobName].totalDispatch += qty;
-        map[o.jobName].poSet.add(o.poNumber);
+        map[o.Job_Name].totalDispatch += qty;
+        map[o.Job_Name].poSet.add(o.PO_Number);
     });
 
     return Object.values(map)
         .map(x => ({
             sku: x.sku,
-            dispatchQty: x.totalDispatch,
+            Dispatch_Qty: x.totalDispatch,
             poCount: x.poSet.size
         }))
-        .sort((a, b) => b.dispatchQty - a.dispatchQty);
+        .sort((a, b) => b.Dispatch_Qty - a.Dispatch_Qty);
 }
 
-// ===== ADDITION: SKU MONTHLY DISPATCH =====
-function prepareSkuMonthlyDispatch(orderBook, sku) {
+// ===== 10. SKU MONTHLY DISPATCH - FIXED COLUMNS =====
+function prepareSkuMonthlyDispatch(orderBookData, sku) {
     const monthMap = {};
 
-    orderBook
-        .filter(o => o.jobName === sku)
+    orderBookData
+        .filter(o => o.Job_Name === sku)
         .forEach(o => {
-            const m = monthKey(o.date);
+            const m = monthKey(o.Login_Date);
             if (!m) return;
-            monthMap[m] = (monthMap[m] || 0) + (Number(o.dispQty) || 0);
+            monthMap[m] = (monthMap[m] || 0) + (Number(o.Dispatch_Qty) || 0);
         });
 
     const months = Object.keys(monthMap).sort();
@@ -315,18 +265,37 @@ function prepareSkuMonthlyDispatch(orderBook, sku) {
         values: months.map(m => monthMap[m])
     };
 }
-/*****************************************
- * SKU vs SKU MONTHLY COMPARISON
- *****************************************/
-function prepareSkuComparison(orderBook, skuA, skuB) {
 
+// ===== 11. ALL SKUs MONTHLY DISPATCH - FIXED COLUMNS =====
+function prepareAllSkusMonthlyDispatch(orderBookData) {
+    const monthMap = {};
+    orderBookData.forEach(o => {
+        if (!o.Login_Date || !o.Dispatch_Qty) return;
+        const month = o.Login_Date.slice(0, 7);
+        const dispQty = Number(o.Dispatch_Qty) || 0;
+        if (!monthMap[month]) monthMap[month] = { Dispatch_Qty: 0, poCount: 0 };
+        monthMap[month].Dispatch_Qty += dispQty;
+        monthMap[month].poCount += 1;
+    });
+
+    const sortedMonths = Object.keys(monthMap).sort();
+    return {
+        labels: sortedMonths.map(m => monthLabelFromKey(m)),
+        values: sortedMonths.map(m => monthMap[m].Dispatch_Qty),
+        poCounts: sortedMonths.map(m => monthMap[m].poCount),
+        months: sortedMonths
+    };
+}
+
+// ===== 12. SKU vs SKU COMPARISON - FIXED COLUMNS =====
+function prepareSkuComparison(orderBookData, skuA, skuB) {
     function getMonthly(sku) {
         const map = {};
-        orderBook
-            .filter(o => o.jobName === sku)
+        orderBookData
+            .filter(o => o.Job_Name === sku)
             .forEach(o => {
-                const m = monthKey(o.date);
-                map[m] = (map[m] || 0) + Number(o.dispQty || 0);
+                const m = monthKey(o.Login_Date);
+                map[m] = (map[m] || 0) + Number(o.Dispatch_Qty || 0);
             });
         return map;
     }
@@ -345,10 +314,8 @@ function prepareSkuComparison(orderBook, skuA, skuB) {
         bValues: months.map(m => bMap[m] || 0)
     };
 }
-const uniqueItemCodes = new Set(
-    itemMasterData.map(i => i.itemCode)
-);
 
+// ===== 13. TABLE SLIDER =====
 function applyTableSlider() {
     const slider = document.getElementById("table-width-slider");
     const tableWrapper = document.querySelector(".drilldown-table-wrapper");
@@ -360,4 +327,14 @@ function applyTableSlider() {
         tableWrapper.style.width = `${scale}%`;
         tableWrapper.style.overflowX = "auto";
     };
+}
+
+// ===== 14. UPDATE DASHBOARD (STUB - Customize as needed) =====
+function updateDashboard(kpi, pendingDispatch, financial, filteredSales, filteredOrders) {
+    // Update KPI displays
+    document.getElementById("ytd-sale").textContent = kpi.ytdSales.toFixed(2);
+    document.getElementById("current-month-sale").textContent = `${kpi.currentMonthSales.toFixed(2)} L`;
+    document.getElementById("completion-rate").textContent = kpi.completionRate.toFixed(1);
+    document.getElementById("pending-dispatch").textContent = `${pendingDispatch.toFixed(2)} L`;
+    // Add more UI updates as needed
 }

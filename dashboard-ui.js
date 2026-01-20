@@ -149,12 +149,15 @@ document.addEventListener("DOMContentLoaded", function () {
             Item_Code: i.Item_Code || "",
             Jobs_Name: i.Jobs_Name || "",
             Label_Size: i.Label_Size || "",
+            Pack_Form: i.Pack_Form || "",
+            Direction: i.Direction || "",
+            Net_Qty: i.Net_Qty || "",
             Material_Type: i.Material_Type || "",
             Inventory: i.Inventory || "",
             Artwork_ID: i.Artwork_ID || "",
             Artwork_file: i.Artwork_file ? `<a href="${i.Artwork_file}" target="_blank">VIEW</a>` : ""
         }));
-        openDrilldown("Item Master List", ["Item_Code","Jobs_Name","Label_Size","Material_Type","Inventory","Artwork_ID","Artwork_file"], rows);
+        openDrilldown("Item Master List", ["Item_Code","Jobs_Name","Label_Size","Pack_Form","Direction","Net_Qty","Material_Type","Inventory","Artwork_ID","Artwork_file"], rows);
         applyTableSlider();
     };
 
@@ -223,7 +226,7 @@ function renderAllSkusMonthlyTrend() {
                 {
                     type: "line",
                     label: "PO Count",
-                    data: series.poCounts,
+                    data: series.PO_Counts,
                     borderColor: "#FF9800",
                     backgroundColor: "#f78008ff",
                     yAxisID: "y1",
@@ -272,16 +275,16 @@ function prepareAllSkusMonthlyDispatch(orderBookData) {
         if (!o.Login_Date || !o.Dispatch_Qty) return;
         const month = o.Login_Date.slice(0, 7);
         const dispQty = Number(o.Dispatch_Qty) || 0;
-        if (!monthMap[month]) monthMap[month] = { Dispatch_Qty: 0, poCount: 0 };
+        if (!monthMap[month]) monthMap[month] = { Dispatch_Qty: 0, PO_Count: 0 };
         monthMap[month].Dispatch_Qty += dispQty;
-        monthMap[month].poCount += 1;
+        monthMap[month].PO_Count += 1;
     });
 
     const sortedMonths = Object.keys(monthMap).sort();
     return {
         labels: sortedMonths.map(m => monthLabelFromKey(m)),
         values: sortedMonths.map(m => monthMap[m].Dispatch_Qty),
-        poCounts: sortedMonths.map(m => monthMap[m].poCount),
+        PO_Counts: sortedMonths.map(m => monthMap[m].PO_Count),
         months: sortedMonths
     };
 }
@@ -291,7 +294,7 @@ function prepareAllSkusMonthlyDispatch(orderBookData) {
 *****************************************/
 function openSkuSummaryByMonth(month) {
     const data = prepareMonthlySkuSummary(orderBookData, month);
-    openDrilldown(`Top SKUs - ${monthLabelFromKey(month)}`, ["sku", "Dispatch_Qty", "poCount"], data);
+    openDrilldown(`Top SKUs - ${monthLabelFromKey(month)}`, ["sku", "Dispatch_Qty", "PO_Count"], data);
 }
 
 function prepareMonthlySkuSummary(orderBookData, month) {
@@ -325,17 +328,17 @@ function renderMonthlyChart() {
                 if(!elements.length) return;
                 const idx = elements[0].index;
                 const month = series.months[idx];
-                const rows = orderBookData
-                    .filter(o => o.Login_Date && o.Login_Date.startsWith(month))
+                const rows = salesBookData
+                    .filter(o => o.Date && o.Date.startsWith(month))
                     .map(o => ({
-                        Login_Date: o.Login_Date,
-                        PO_Number: o.PO_Number,
+                        Date: o.Date,
+                        Invoice_No: o.Invoice_No,
                         Job_Name: o.Job_Name,
-                        Status: o.Status,
+                        Dispatch_Qty: o.Dispatch_Qty,
                         Value: o.Value,
                         Link: o.Link ? `<a href="${o.Link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
                     }));
-                openDrilldown(`Orders - ${series.labels[idx]}`, ["Login_Date","PO_Number","Job_Name","Status","Value","Link"], rows);
+                openDrilldown(`Orders - ${series.labels[idx]}`, ["Date","Invoice_No","Job_Name","Dispatch_Qty","Value","Link"], rows);
             }
         }
     });
@@ -354,7 +357,7 @@ function renderMonthlyPOTrend() {
         data:{
             labels: po.labels,
             datasets:[
-                { type:"bar", label:"PO Count", data:po.poCount, backgroundColor:"#283593" },
+                { type:"bar", label:"PO Count", data:po.PO_Count, backgroundColor:"#283593" },
                 { type:"line", label:"PO Value (Lakh)", data:po.poValue, borderColor:"#5c6bc0", tension:.35, yAxisID:"y1" }
             ]
         },
@@ -374,11 +377,16 @@ function renderMonthlyPOTrend() {
                         Job_Name: o.Job_Name,
                         Status: o.Status,
                         Value: o.Value,
+                        Order_Qty: o.Order_Qty,
                         Dispatch_Qty: o.Dispatch_Qty,
+                        Remaining_Qty: Math.max(0,
+                         (Number(o.Order_Qty) || 0) - (Number(o.Dispatch_Qty) || 0)
+                        ),      
+   
                         Link: o.Link ? `<a href="${o.Link}" target="_blank" style="color:#1a237e;text-decoration:underline;font-weight:600;">DOWNLOAD</a>` : ""
                     }));
                 const titleMonth = monthLabelFromKey(month);
-                openDrilldown(`PO Details - ${titleMonth}`, ["Login_Date","PO_Number","Job_Name","Status","Value","Dispatch_Qty","Link"], rows);
+                openDrilldown(`PO Details - ${titleMonth}`, ["Login_Date","PO_Number","Job_Name","Status","Value","Order_Qty","Dispatch_Qty","Remaining_Qty","Link"], rows);
             }
         }
     });
@@ -396,7 +404,7 @@ function renderOrderCompletionPie() {
     orderCompletionPie = new Chart(ctx, {
         type: "pie",
         data: {
-            labels: data.labels.map((l, i) => `${l} (₹ ${data.valueLakh[i].toFixed(2)} L | ${data.poCount[i]} PO)`),
+            labels: data.labels.map((l, i) => `${l} (₹ ${data.valueLakh[i].toFixed(2)} L | ${data.PO_Count[i]} PO)`),
             datasets: [{
                 data: data.valueLakh,
                 backgroundColor: ["#2e7d32", "#c62828"]
@@ -409,7 +417,7 @@ function renderOrderCompletionPie() {
             plugins: {
                 tooltip: {
                     callbacks: {
-                        label: ctx => `₹ ${ctx.raw.toFixed(2)} L | ${data.poCount[ctx.dataIndex]} POs`
+                        label: ctx => `₹ ${ctx.raw.toFixed(2)} L | ${data.PO_Count[ctx.dataIndex]} POs`
                     }
                 }
             },
@@ -436,7 +444,7 @@ function renderOrderCompletionPie() {
 *****************************************/
 function openSkuSummary() {
     const data = prepareSkuSummary(orderBookData);
-    openDrilldown("SKU Summary (Click SKU for Monthly Trend)", ["sku", "Dispatch_Qty", "poCount"], data);
+    openDrilldown("SKU Summary (Click SKU for Monthly Trend)", ["sku", "Dispatch_Qty", "PO_Count"], data);
 
     const clearBtn = document.getElementById("clearSkuFilterBtn");
     if (clearBtn) clearBtn.style.display = "block";
@@ -531,7 +539,7 @@ function renderSkuListByMonth(month) {
             if (!skuMap[sku]) {
                 skuMap[sku] = {
                     sku,
-                    poCount: 0,
+                    PO_Count: 0,
                     Order_Qty: 0,
                     Dispatch_Qty: 0,
                     pendingQty: 0,
@@ -540,7 +548,7 @@ function renderSkuListByMonth(month) {
                 };
             }
 
-            skuMap[sku].poCount += 1;
+            skuMap[sku].PO_Count += 1;
             skuMap[sku].Order_Qty += orderQty;
             skuMap[sku].Dispatch_Qty += dispQty;
             skuMap[sku].pendingQty += (o.Status || "").toLowerCase() === "incomplete" ? (orderQty - dispQty) : 0;
@@ -556,7 +564,7 @@ function renderSkuListByMonth(month) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${s.sku}</td>
-            <td align='center'>${s.poCount.toLocaleString()}</td>
+            <td align='center'>${s.PO_Count.toLocaleString()}</td>
             <td align='center'>${s.Order_Qty.toLocaleString()}</td>
             <td align='center'>${s.Dispatch_Qty.toLocaleString()}</td>
             <td align='center'>${s.pendingQty.toLocaleString()}</td>
@@ -656,7 +664,7 @@ function renderAllSkusMonthlyRankList(series) {
     const rows = series.labels.map((m, i) => ({
         month: m,
         Dispatch_Qty: series.values[i],
-        poCount: series.poCounts[i]
+        PO_Count: series.PO_Counts[i]
     }));
 
     rows.sort((a, b) => b.Dispatch_Qty - a.Dispatch_Qty);
@@ -666,7 +674,7 @@ function renderAllSkusMonthlyRankList(series) {
              onclick="highlightMonthOnChart('${r.month}')">
           <span><strong>${i + 1}.</strong> ${r.month}</span>
           <span style="color: #34618fff; font-weight: 500;">${r.Dispatch_Qty.toLocaleString()} Qty</span>
-          <span style="color: #ff7300ff; margin-left: 10px;">${r.poCount} PO</span>
+          <span style="color: #ff7300ff; margin-left: 10px;">${r.PO_Count} PO</span>
         </div>
     `).join("");
 }

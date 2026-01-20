@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jainytic Analytics Dashboard</title>
+
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/ds-digital" rel="stylesheet">
+
+    <style>
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            position: relative;
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            border-radius: 12px;
+            color: #fff;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.8rem;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .header-logo {
+            position: absolute;
+            right: 25px;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 45px;
+        }
+
+        /* Digital Clock */
+        .digital-clock {
+            font-family: 'DS-Digital', monospace;
+            font-size: 28px;
+            letter-spacing: 2px;
+            color: #f5fafa;
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            display: inline-block;
+            position: absolute;
+            right: 20px;
+            top: 65px;
+            text-shadow:
+                0 0 4px rgba(0, 229, 255, 0.9),
+                0 0 8px rgba(0, 229, 255, 0.7),
+                0 0 16px rgba(0, 229, 255, 0.5);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Financial Overview */
+        .financial-overview {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .financial-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .financial-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+        }
+
+        .invoice-icon {
+            background: #e8eaf6;
+            color: #1a237e;
+        }
+
+        .outstanding-icon {
+            background: #ffebee;
+            color: #f44336;
+        }
+
+        .pending-icon {
+            background: #fff3e0;
+            color: #ff9800;
+        }
+
+        .financial-info h3 {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .financial-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1a237e;
+        }
+
+        .outstanding-value {
+            color: #f44336;
+        }
+
+        .pending-value {
+            color: #ff9800;
+        }
+
+        .financial-subtext {
+            font-size: 0.9rem;
+            color: #777;
+        }
+
+        /* KPI Cards */
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .kpi-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-top: 5px solid #1a237e;
+            position: relative;
+        }
+
+        .kpi-card.warning {
+            border-top-color: #ff9800;
+        }
+
+        .kpi-card.alert {
+            border-top-color: #f44336;
+        }
+
+        .kpi-card.success {
+            border-top-color: #4caf50;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .kpi-card h3 {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .kpi-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #1a237e;
+            margin-bottom: 5px;
+        }
+
+        .kpi-card.warning .kpi-value {
+            color: #ff9800;
+        }
+
+        .kpi-card.alert .kpi-value {
+            color: #f44336;
+        }
+
+        .kpi-card.success .kpi-value {
+            color: #4caf50;
+        }
+
+        .kpi-subtext {
+            font-size: 0.95rem;
+            color: #777;
+        }
+
+        .kpi-trend {
+            position: flex;
+            top: 20px;
+            right: 20px;
+            font-size: 0.9rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .trend-up {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .trend-down {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .trend-neutral {
+            background-color: #f5f5f5;
+            color: #666;
+        }
+
+        /* Charts layout */
+        .combined-chart-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .chart-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
+        }
+
+        .chart-card h2 {
+            font-size: 1.3rem;
+            color: #1a237e;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+
+        .chart-container {
+            position: center;
+            height: 300px;
+            width: 100%;
+        }
+
+
+        
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        /* Summary section */
+        .summary-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
+        }
+
+        .summary-section h2 {
+            font-size: 1.3rem;
+            color: #1a237e;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .summary-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #1a237e;
+        }
+
+        .summary-item.warning {
+            border-left-color: #ff9800;
+        }
+
+        .summary-item.alert {
+            border-left-color: #f44336;
+        }
+
+        .summary-item.success {
+            border-left-color: #4caf50;
+        }
+
+        .summary-item h3 {
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .summary-item p {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1a237e;
+        }
+
+        .summary-item.warning p {
+            color: #ff9800;
+        }
+
+        .summary-item.alert p {
+            color: #f44336;
+        }
+
+        .summary-item.success p {
+            color: #4caf50;
+        }
+
+        /* Top SKUs & tables */
+        .top-skus-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(207, 17, 17, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .top-skus-section h2 {
+            font-size: 1.3rem;
+            color: #020560;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f2f5;
+        }
+
+        .filter-row {
+            margin: 10px 0 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* Scroll Container */
+        .sku-list-container {
+            max-height: 380px;
+            overflow-y: auto;
+            border-radius: 10px;
+            background: #ffffff;
+            box-shadow: inset 0 0 0 1px #e6e9f2;
+        }
+
+        /* Scrollbar Styling */
+        .sku-list-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sku-list-container::-webkit-scrollbar-thumb {
+            background: #c5cae9;
+            border-radius: 6px;
+        }
+
+        .sku-list-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        /* Table */
+        .sku-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 14px;
+        }
+
+        .sku-table th {
+            background: linear-gradient(135deg, #1a237e, #283593);
+            color: #ffffff;
+            padding: 10px 8px;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+
+        .sku-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eef0f6;
+            text-align: center;
+            color: #333;
+        }
+
+        .sku-table tbody tr {
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+
+        .sku-table tbody tr:hover {
+            background: #92f5e3;
+            cursor: pointer;
+        }
+
+        /* Card-style SKU item */
+        .sku-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 14px;
+            margin: 8px;
+            border-radius: 10px;
+            background: #f9fafc;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            border-left: 4px solid #1a237e;
+        }
+
+        .sku-item:hover {
+            background: #b9f6f7;
+            transform: translateY(-2px);
+        }
+
+        .sku-qty {
+            font-weight: 700;
+            color: #2e7d32;
+            font-size: 15px;
+        }
+
+        .sku-rank {
+            background: #1a237e;
+            color: #fff;
+            font-weight: 600;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            font-size: 0.9rem;
+            border-top: 1px solid #eee;
+            margin-top: 30px;
+        }
+
+        .dashboard-card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            height: 360px;
+        }
+
+        .chart-wrapper canvas {
+            display: block;
+            width: 100% !important;
+            height: 360px !important;
+        }
+
+        .qty-cell {
+            display: inline-block;
+            min-width: 140px;
+            text-align: right;
+            color: #1976d2;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .clearSkuFilterBtn {
+            display: none;
+            margin: 0 auto 12px auto;
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid #1a237e;
+            background: #fff;
+            color: #1a237e;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .table-controls {
+    margin-bottom: 10px;
+}
+
+.drilldown-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.drilldown-table {
+    min-width: 1200px;
+    border-collapse: collapse;
+}
+
+.drilldown-table th,
+.drilldown-table td {
+    padding: 8px 12px;
+    white-space: nowrap;
+    text-align: left;
+}
+
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .financial-overview {
+                grid-template-columns: 1fr;
+            }
+
+            .kpi-container {
+                grid-template-columns: 1fr;
+            }
+
+            .combined-chart-container {
+                grid-template-columns: 1fr;
+            }
+
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .filter-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <h1>DASHBOARD</h1>
+        <p>Sales Order Analysis Dashboard - FY 2025-26</p>
+        <div id="digitalClock" class="digital-clock">TICTAK</div>
+    </div>
+
+    <!-- Drilldown Modal -->
+    <div id="drilldown-overlay"
+         style="display:none; position:fixed; inset:0; backdrop-filter:blur(4px); background:rgba(0,0,0,.35); z-index:9998; opacity:0; transition:opacity .35s ease;">
+    </div>
+
+    <div id="drilldown-modal"
+         style="
+            position:fixed;
+            left:0;
+            right:0;
+            bottom:-100%;
+            height:85vh;
+            background:#fff;
+            z-index:9999;
+            padding:15px 20px 25px 20px;
+            overflow-y:auto;
+            border-top-left-radius:24px;
+            border-top-right-radius:24px;
+            box-shadow:0 -10px 25px rgba(0,0,0,0.25);
+            transition:bottom .45s cubic-bezier(.17,.84,.44,1);
+            display:flex;
+            flex-direction:column;
+         ">
+        <div id="drag-handle"
+             style="width:55px; height:6px; border-radius:3px; background:#c2c2c2; margin:0 auto 12px auto; cursor:grab;">
+        </div>
+
+        <h2 id="drilldown-title"
+            style="margin:0 0 15px 0; text-align:center; color:#1a237e; font-size:1.4rem; font-weight:700;">
+        </h2>
+
+        <div style="flex:1; overflow-y:auto;">
+            <table border="1" width="100%" cellpadding="8" cellspacing="0"
+                   style="border-collapse:collapse; font-size:14px;">
+                <thead id="drilldown-head"
+                       style="background:#e8eaf6; color:#1a237e; font-weight:600;">
+                </thead>
+                <tbody id="drilldown-body"></tbody>
+            </table>
+        </div>
+
+        <button onclick="closeDrilldown()"
+                style="padding:12px; background:#1a237e; color:white; border:none; border-radius:8px; font-size:15px; margin-top:15px;">
+            Close
+        </button>
+    </div>
+
+    <!-- Financial Overview -->
+    <div class="financial-overview">
+        <div class="financial-card">
+            <div class="financial-icon outstanding-icon">📈</div>
+            <div class="financial-info">
+                <h3>YTD Sale in lakh</h3>
+                <div class="financial-value" id="ytd-sale">0.00</div>
+                <div class="financial-subtext">Total sales for current financial year</div>
+            </div>
+        </div>
+
+        <div class="financial-card">
+            <div class="financial-icon pending-icon">📦</div>
+            <div class="financial-info">
+                <h3>Pending for Dispatch</h3>
+                <div class="financial-value pending-value" id="pending-dispatch">0.0</div>
+                <div class="financial-subtext">Incomplete order value in lakhs</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Container -->
+    <div class="kpi-container">
+        <div class="kpi-card success">
+            <h3>Current_Month_Sale</h3>
+            <div class="kpi-value" id="current-month-sale">0.00</div>
+            <div class="kpi-subtext">Sales for current month</div>
+        </div>
+
+        <div class="kpi-card warning">
+            <h3>Completion Rate</h3>
+            <div class="kpi-value" id="completion-rate">0.0</div>
+            <div class="kpi-subtext">Orders completed vs total</div>
+        </div>
+
+        <div class="kpi-card alert">
+            <h3>Outstanding Amount</h3>
+            <div class="kpi-value" id="outstanding-amount">0.00 L</div>
+            <div class="kpi-subtext">Pending payment in lakhs</div>
+        </div>
+
+        <div class="kpi-card">
+            <h3>Item Master</h3>
+            
+            <div class="kpi-value" id="item-master-count">0</div>
+            <div class="kpi-subtext">Check the Total Item Status</div>
+        </div>
+    </div>
+
+    <!-- Combined Charts -->
+    <div class="combined-chart-container">
+        <div class="chart-card">
+            <h2>Monthly Sales Trend in lakh</h2>
+            <div class="chart-container">
+                <canvas id="monthlySalesChart"></canvas>
+            </div>
+            
+            <div class="chart-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color:#1a237e;"></div>
+                    <span>FY25-26</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h2>Monthly Purchase Order Trend</h2>
+            <div class="chart-container">
+                <canvas id="monthlyPOChart"></canvas>
+            </div>
+            <div class="chart-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color:#283593;"></div>
+                    <span>No. of POs</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color:#5c6bc0;"></div>
+                    <span>PO Value in lakh</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SKU List by Month -->
+    <div class="chart-card">
+        <h2>SKU List by Month</h2>
+        <div class="filter-row">
+            <label for="skuMonthFilter">Select Month:</label>
+            <input type="month" id="skuMonthFilter">
+        </div>
+        <div class="sku-list-container">
+            <table class="sku-table">
+                <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th>PO Count</th>
+                    <th>Order Qty</th>
+                    <th>Dispatch Qty</th>
+                    <th>Pending Qty</th>
+                </tr>
+                </thead>
+                <tbody id="skuListBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Order Completion -->
+    <div class="chart-card">
+        <h2>Order Completion Status (₹ Lakh)</h2>
+        <div class="chart-container">
+            <canvas id="orderCompletionPie"></canvas>
+        </div>
+        <div class="chart-legend">
+            <div class="legend-item">
+                <span style="color:#2e7d32;font-weight:600;">● Completed</span>
+            </div>
+            <div class="legend-item">
+                <span style="color:#c62828;font-weight:600;">● Incomplete</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top SKUs -->
+    <div class="chart-card">
+        <h2>Top SKUs by Dispatch Quantity (Highest to Lowest)</h2>
+        <div class="sku-list-container" id="topSkuList"></div>
+    </div>
+
+    <!-- SKU Comparison -->
+    <div class="chart-card" id="skuCompareChartCard" style="display:none;">
+        <h2 id="skuCompareChartTitle">SKU Comparison</h2>
+
+        <div style="display:flex; gap:10px; margin-bottom:12px;">
+            <select id="skuCompareA" style="flex:1; padding:6px;"></select>
+            <select id="skuCompareB" style="flex:1; padding:6px;"></select>
+
+            <button id="compareSkuBtn"
+                    style="padding:6px 14px; background:#1a237e; color:#fff; border:none; border-radius:6px;">
+                Compare
+            </button>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="skuCompareChart"></canvas>
+        </div>
+    </div>
+
+    <!-- SKU Monthly Trend + KPI -->
+    <div class="kpi-card">
+        <h3>Total Unique SKUs</h3>
+        <div class="kpi-value" id="total-sku-count">0</div>
+        <!-- unique ID here, matches CSS class for styling -->
+        <button id="clearSkuFilterBtn" class="clearSkuFilterBtn">✕ Clear SKU Selection</button>
+        <div class="kpi-subtext">Distinct SKUs dispatched</div>
+
+        <div class="chart-card" id="skuMonthlyChartCard" style="margin-top:20px;">
+            <h2 id="skuMonthlyChartTitle">SKU Monthly Dispatch Trend</h2>
+            <div class="chart-container">
+                <canvas id="skuMonthlyDispatchChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:10px 0 20px 0;">
+        <button id="backToSkuListBtn"
+                style="display:none; padding:6px 12px; border-radius:6px; border:none; background:#1a237e; color:#fff; cursor:pointer;">
+            ← Back to SKU List
+        </button>
+
+        <!-- removed duplicated clearSkuFilterBtn here -->
+
+        <div id="skuChartLoader"
+             style="display:none; font-weight:600; color:#1a237e;">
+            Loading chart…
+        </div>
+    </div>
+
+    <!-- Summary Section -->
+    <div class="summary-section">
+        <h2>Key Insights Summary</h2>
+        <div class="summary-grid">
+            <div class="summary-item">
+                <h3>Operational Excellence</h3>
+                <p>Nearly 100% order-to-dispatch match shows best-in-class fulfillment reliability.</p>
+            </div>
+            <div class="summary-item">
+                <h3>Revenue Stability</h3>
+                <p>Standardized pricing and repeat orders indicate predictable revenue and controllable margins.</p>
+            </div>
+            <div class="summary-item">
+                <h3>Scalable Business Model</h3>
+                <p>High repeat jobs imply strong core products rather than fragile custom demand.</p>
+            </div>
+            <div class="summary-item">
+                <h3>Financial Efficiency</h3>
+                <p>Consolidated invoicing reduces processing overhead and improves cash-flow control.</p>
+            </div>
+            <div class="summary-item">
+                <h3>Data Governance Gap (Main Risk)</h3>
+                <p>Missing brand information limits strategic analysis — fixing this unlocks brand profitability insights.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="footer">
+    JAINYTIC MIS || Sales Analytics Dashboard | Data Source: ORDER BOOK, SALES BOOK
+</div>
+
+<!-- Scripts -->
+<script src="data-source.js"></script>
+<script src="dashboard-logic.js"></script>
+<script src="dashboard-ui.js"></script>
+</body>
+</html>

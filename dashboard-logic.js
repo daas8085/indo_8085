@@ -139,7 +139,7 @@ function prepareMonthlyPOSeries(orderBookData) {
     const months = ["2025-10", "2025-11", "2025-12", "2026-01"];
     const labels = ["October 2025", "November 2025", "December 2025", "January 2026"];
 
-    const poCount = months.map(m => orderBookData.filter(o => monthKey(o.Login_Date) === m && o.Value).length);
+    const PO_Count = months.map(m => orderBookData.filter(o => monthKey(o.Login_Date) === m && o.Value).length);
 
     const poValue = months.map(m =>
         sumBy(orderBookData.filter(o => monthKey(o.Login_Date) === m && o.Value), x => x.Value) / 100000
@@ -147,7 +147,7 @@ function prepareMonthlyPOSeries(orderBookData) {
 
     const growth = poValue.map((v, i) => i === 0 ? 0 : ((v - poValue[i - 1]) / (poValue[i - 1] || 1)) * 100);
 
-    return { labels, months, poCount, poValue, growth };
+    return { labels, months, PO_Count, poValue, growth };
 }
 
 // ===== 7. ORDER COMPLETION STATUS - FIXED COLUMNS =====
@@ -166,7 +166,7 @@ function prepareOrderCompletionStatus(orderBookData) {
             completed.reduce((s, x) => s + (x.Value || 0), 0) / 100000,
             incomplete.reduce((s, x) => s + (x.Value || 0), 0) / 100000
         ],
-        poCount: [
+        PO_Count: [
             completed.length,
             incomplete.length
         ],
@@ -205,7 +205,7 @@ function prepareTopSKUs(orderBookData, topN = 8) {
         Brand: x.Brand,
         totalOrder: x.totalOrder,
         totalDispatch: x.totalDispatch,
-        poCount: x.poSet.size
+        PO_Count: x.poSet.size
     }));
 
     arr.sort((a, b) => b.totalDispatch - a.totalDispatch);
@@ -241,7 +241,7 @@ function prepareSkuSummary(orderBookData) {
         .map(x => ({
             sku: x.sku,
             Dispatch_Qty: x.totalDispatch,
-            poCount: x.poSet.size
+            PO_Count: x.poSet.size
         }))
         .sort((a, b) => b.Dispatch_Qty - a.Dispatch_Qty);
 }
@@ -273,16 +273,16 @@ function prepareAllSkusMonthlyDispatch(orderBookData) {
         if (!o.Login_Date || !o.Dispatch_Qty) return;
         const month = o.Login_Date.slice(0, 7);
         const dispQty = Number(o.Dispatch_Qty) || 0;
-        if (!monthMap[month]) monthMap[month] = { Dispatch_Qty: 0, poCount: 0 };
+        if (!monthMap[month]) monthMap[month] = { Dispatch_Qty: 0, PO_Count: 0 };
         monthMap[month].Dispatch_Qty += dispQty;
-        monthMap[month].poCount += 1;
+        monthMap[month].PO_Count += 1;
     });
 
     const sortedMonths = Object.keys(monthMap).sort();
     return {
         labels: sortedMonths.map(m => monthLabelFromKey(m)),
         values: sortedMonths.map(m => monthMap[m].Dispatch_Qty),
-        poCounts: sortedMonths.map(m => monthMap[m].poCount),
+        PO_Counts: sortedMonths.map(m => monthMap[m].PO_Count),
         months: sortedMonths
     };
 }

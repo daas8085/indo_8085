@@ -49,7 +49,7 @@ def df_to_js_array(df: pd.DataFrame) -> str:
     # ✅ STEP 3: Replace NaN ONLY in non-numeric columns
     for col in df.columns:
         if not pd.api.types.is_numeric_dtype(df[col]):
-            df[col] = df[col].astype(str).fillna("")
+            df[col] = df[col].astype(str).fillna("").replace("nan", "-")
 
     # ✅ STEP 4: JSON-safe export
     return json.dumps(
@@ -73,6 +73,7 @@ def main():
         "brand":"Brand",
         "orderQty":"Order_Qty",
         "dispQty":"Dispatch_Qty",
+        "remQty":"Remaining_Qty",
         "status":"Status",
         "date":"Login_Date",
         "invoiceNo":"Invoice_No",
@@ -86,6 +87,7 @@ def main():
         "date": "Date",
         "invoiceNo": "Invoice_No",
         "jobName": "Job_Name",
+        "dispQty": "Dispatch_Qty",
         "value": "Value",
         "dueDate": "Due_Date",
         "link": "Link",
@@ -98,13 +100,12 @@ def main():
         "jobsName": "Jobs_Name",
         "date": "Date",
         "packForm": "Pack_Form",
-        "nQty": "N_Qty",
+        "nQty": "Net_Qty",
         "materialType": "Material_Type",
         "direction": "Direction",
         "labelSize": "Label_Size",
         "inventory": "Inventory",
-
-        "artworkid": "Artwork_ID",
+        "artworkId": "Artwork_ID",
         "artworkFile": "Artwork_file"
     })
 
